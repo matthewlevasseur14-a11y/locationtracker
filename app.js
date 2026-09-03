@@ -282,7 +282,7 @@ function renderMapPosition(position, animate = true) {
   if (!locationMarker) {
     const markerElement = document.createElement("div");
     markerElement.className = "user-dot-wrapper";
-    markerElement.innerHTML = '<div class="user-dot" aria-hidden="true"></div>';
+    markerElement.innerHTML = '<img class="user-avatar" src="location-avatar.png?v=1" alt="" draggable="false">';
     markerElement.setAttribute("aria-label", "Your current location");
 
     locationMarker = new maplibregl.Marker({
