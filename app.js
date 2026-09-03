@@ -2,6 +2,18 @@
 
 const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.7.0/dist/maplibre-gl.mjs";
 const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const HALLOWEEN_MAP_COLORS = {
+  land: "#2a1833",
+  water: "#17152d",
+  foliage: "#173225",
+  building: "#432542",
+  road: "#b95e2c",
+  majorRoad: "#f28a32",
+  boundary: "#78537d",
+  line: "#553b5a",
+  label: "#f8dbb4",
+  labelHalo: "#190d20"
+};
 const LOCALS_DINER_ZONE = {
   latitude: 42.6725322,
   longitude: -71.3321216,
@@ -98,6 +110,7 @@ async function initializeMap() {
       window.clearTimeout(loadTimeout);
       mapLoaded = true;
       elements.startButton.disabled = false;
+      applyHalloweenMapTheme();
       addAccuracyLayers();
       if (lastPosition) renderMapPosition(lastPosition, false);
       if (!wantsTracking && !lastPosition) {
@@ -133,6 +146,69 @@ function emptyFeature() {
   };
 }
 
+function setLayerPaint(layerId, property, value) {
+  try {
+    map.setPaintProperty(layerId, property, value);
+  } catch (error) {
+    // Some imported style layers do not support every optional paint property.
+  }
+}
+
+function applyHalloweenMapTheme() {
+  if (!map) return;
+
+  const layers = map.getStyle()?.layers || [];
+
+  layers.forEach((layer) => {
+    const id = layer.id.toLowerCase();
+    const isWater = /water|ocean|river|lake|stream/.test(id);
+    const isFoliage = /park|wood|forest|grass|green|nature|landcover/.test(id);
+    const isBuilding = /building|structure/.test(id);
+    const isRoad = /road|street|highway|motorway|trunk|primary|secondary|tertiary|bridge|tunnel/.test(id);
+    const isMajorRoad = /highway|motorway|trunk|primary/.test(id);
+    const isBoundary = /boundary|border|admin/.test(id);
+
+    if (layer.type === "background") {
+      setLayerPaint(layer.id, "background-color", HALLOWEEN_MAP_COLORS.land);
+      return;
+    }
+
+    if (layer.type === "fill" || layer.type === "fill-extrusion") {
+      const property = layer.type === "fill" ? "fill-color" : "fill-extrusion-color";
+      const color = isWater
+        ? HALLOWEEN_MAP_COLORS.water
+        : isFoliage
+          ? HALLOWEEN_MAP_COLORS.foliage
+          : isBuilding
+            ? HALLOWEEN_MAP_COLORS.building
+            : HALLOWEEN_MAP_COLORS.land;
+      setLayerPaint(layer.id, property, color);
+      return;
+    }
+
+    if (layer.type === "line") {
+      const color = isWater
+        ? "#39345f"
+        : isRoad
+          ? isMajorRoad
+            ? HALLOWEEN_MAP_COLORS.majorRoad
+            : HALLOWEEN_MAP_COLORS.road
+          : isBoundary
+            ? HALLOWEEN_MAP_COLORS.boundary
+            : HALLOWEEN_MAP_COLORS.line;
+      setLayerPaint(layer.id, "line-color", color);
+      return;
+    }
+
+    if (layer.type === "symbol") {
+      setLayerPaint(layer.id, "text-color", HALLOWEEN_MAP_COLORS.label);
+      setLayerPaint(layer.id, "text-halo-color", HALLOWEEN_MAP_COLORS.labelHalo);
+      setLayerPaint(layer.id, "text-halo-width", 1.2);
+      setLayerPaint(layer.id, "text-halo-blur", 0.35);
+    }
+  });
+}
+
 function addAccuracyLayers() {
   if (!map || map.getSource("accuracy-area")) return;
 
@@ -146,8 +222,8 @@ function addAccuracyLayers() {
     type: "fill",
     source: "accuracy-area",
     paint: {
-      "fill-color": "#1686ff",
-      "fill-opacity": 0.14
+      "fill-color": "#f47b20",
+      "fill-opacity": 0.16
     }
   });
 
@@ -156,7 +232,7 @@ function addAccuracyLayers() {
     type: "line",
     source: "accuracy-area",
     paint: {
-      "line-color": "#4da3ff",
+      "line-color": "#ffad4d",
       "line-opacity": 0.78,
       "line-width": 1.5
     }
