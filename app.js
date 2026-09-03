@@ -1,7 +1,12 @@
 "use strict";
 
+const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.7.0/dist/maplibre-gl.mjs";
+const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+
 const elements = {
   mapFrame: document.querySelector(".map-frame"),
+  mapMessageTitle: document.querySelector(".map-message h2"),
+  mapMessageDetail: document.querySelector(".map-message p"),
   statusPill: document.getElementById("statusPill"),
   statusShort: document.getElementById("statusShort"),
   statusTitle: document.getElementById("statusTitle"),
@@ -17,9 +22,10 @@ const elements = {
   updated: document.getElementById("updated")
 };
 
+let maplibregl = null;
 let map = null;
+let mapLoaded = false;
 let locationMarker = null;
-let accuracyCircle = null;
 let watchId = null;
 let lastPosition = null;
 let wantsTracking = false;
@@ -39,41 +45,142 @@ function setStatus(state, shortText, title, detail) {
   elements.statusDetail.textContent = detail;
 }
 
-function initializeMap() {
-  if (!window.L) {
-    setStatus(
-      "error",
-      "Map error",
-      "The map could not load",
-      "Check your internet connection and reload the page."
+function showMapError() {
+  elements.mapMessageTitle.textContent = "The map could not load";
+  elements.mapMessageDetail.textContent = "Check your connection, then reload this page.";
+  elements.startButton.disabled = true;
+  setStatus(
+    "error",
+    "Map error",
+    "The map could not load",
+    "Check your internet connection and reload the page."
+  );
+}
+
+async function initializeMap() {
+  try {
+    maplibregl = await import(MAPLIBRE_URL);
+
+    map = new maplibregl.Map({
+      container: "map",
+      style: MAP_STYLE_URL,
+      center: [-71.0589, 42.3601],
+      zoom: 11,
+      attributionControl: false,
+      antialias: true,
+      dragRotate: false,
+      pitchWithRotate: false
+    });
+
+    map.touchZoomRotate.disableRotation();
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-left");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
+
+    const loadTimeout = window.setTimeout(() => {
+      if (!mapLoaded) showMapError();
+    }, 20000);
+
+    map.on("load", () => {
+      window.clearTimeout(loadTimeout);
+      mapLoaded = true;
+      elements.startButton.disabled = false;
+      addAccuracyLayers();
+      if (lastPosition) renderMapPosition(lastPosition, false);
+      if (!wantsTracking && !lastPosition) {
+        setStatus(
+          "idle",
+          "Ready",
+          "Location is off",
+          "Safari will ask for permission after you tap Start live tracking."
+        );
+      }
+    });
+
+    map.on("dragstart", () => {
+      if (lastPosition) followLocation = false;
+    });
+
+    map.on("zoomstart", (event) => {
+      if (lastPosition && event.originalEvent) followLocation = false;
+    });
+
+    window.addEventListener("resize", () => {
+      window.setTimeout(() => map.resize(), 120);
+    });
+  } catch (error) {
+    showMapError();
+  }
+}
+
+function emptyFeature() {
+  return {
+    type: "FeatureCollection",
+    features: []
+  };
+}
+
+function addAccuracyLayers() {
+  if (!map || map.getSource("accuracy-area")) return;
+
+  map.addSource("accuracy-area", {
+    type: "geojson",
+    data: emptyFeature()
+  });
+
+  map.addLayer({
+    id: "accuracy-fill",
+    type: "fill",
+    source: "accuracy-area",
+    paint: {
+      "fill-color": "#1686ff",
+      "fill-opacity": 0.14
+    }
+  });
+
+  map.addLayer({
+    id: "accuracy-line",
+    type: "line",
+    source: "accuracy-area",
+    paint: {
+      "line-color": "#4da3ff",
+      "line-opacity": 0.78,
+      "line-width": 1.5
+    }
+  });
+}
+
+function accuracyFeature(longitude, latitude, radiusMeters) {
+  const coordinates = [];
+  const earthRadius = 6371008.8;
+  const angularDistance = Math.max(radiusMeters, 1) / earthRadius;
+  const latitudeRadians = latitude * Math.PI / 180;
+  const longitudeRadians = longitude * Math.PI / 180;
+
+  for (let step = 0; step <= 72; step += 1) {
+    const bearing = step / 72 * Math.PI * 2;
+    const latitudePoint = Math.asin(
+      Math.sin(latitudeRadians) * Math.cos(angularDistance) +
+      Math.cos(latitudeRadians) * Math.sin(angularDistance) * Math.cos(bearing)
     );
-    elements.startButton.disabled = true;
-    return;
+    const longitudePoint = longitudeRadians + Math.atan2(
+      Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitudeRadians),
+      Math.cos(angularDistance) - Math.sin(latitudeRadians) * Math.sin(latitudePoint)
+    );
+
+    coordinates.push([
+      longitudePoint * 180 / Math.PI,
+      latitudePoint * 180 / Math.PI
+    ]);
   }
 
-  map = L.map("map", {
-    zoomControl: true,
-    attributionControl: true,
-    preferCanvas: true
-  }).setView([42.3601, -71.0589], 11);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    detectRetina: true,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(map);
-
-  map.on("dragstart", () => {
-    if (lastPosition) followLocation = false;
-  });
-
-  map.on("zoomstart", (event) => {
-    if (lastPosition && event.originalEvent) followLocation = false;
-  });
-
-  window.addEventListener("resize", () => {
-    window.setTimeout(() => map.invalidateSize(false), 120);
-  });
+  return {
+    type: "Feature",
+    properties: {},
+    geometry: {
+      type: "Polygon",
+      coordinates: [coordinates]
+    }
+  };
 }
 
 function formatSpeed(metersPerSecond) {
@@ -88,9 +195,44 @@ function formatHeading(degrees) {
   return `${direction} · ${Math.round(degrees)}°`;
 }
 
+function renderMapPosition(position, animate = true) {
+  if (!mapLoaded) return;
+
+  const { latitude, longitude, accuracy } = position.coords;
+  const point = [longitude, latitude];
+  const source = map.getSource("accuracy-area");
+
+  if (!locationMarker) {
+    const markerElement = document.createElement("div");
+    markerElement.className = "user-dot-wrapper";
+    markerElement.innerHTML = '<div class="user-dot" aria-hidden="true"></div>';
+    markerElement.setAttribute("aria-label", "Your current location");
+
+    locationMarker = new maplibregl.Marker({
+      element: markerElement,
+      anchor: "center"
+    }).setLngLat(point).addTo(map);
+  } else {
+    locationMarker.setLngLat(point);
+  }
+
+  if (source) {
+    source.setData(accuracyFeature(longitude, latitude, accuracy));
+  }
+
+  if (followLocation) {
+    const nextZoom = Math.max(map.getZoom(), accuracy > 250 ? 14 : 17);
+    map.easeTo({
+      center: point,
+      zoom: nextZoom,
+      duration: animate ? 650 : 0,
+      essential: true
+    });
+  }
+}
+
 function renderPosition(position) {
   const { latitude, longitude, accuracy, speed, heading } = position.coords;
-  const point = [latitude, longitude];
 
   lastPosition = position;
   elements.coordinates.textContent = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
@@ -103,38 +245,13 @@ function renderPosition(position) {
     second: "2-digit"
   }).format(new Date(position.timestamp));
 
-  if (!locationMarker) {
-    const icon = L.divIcon({
-      className: "user-dot-wrapper",
-      html: '<div class="user-dot" aria-hidden="true"></div>',
-      iconSize: [22, 22],
-      iconAnchor: [11, 11]
-    });
-    locationMarker = L.marker(point, { icon, keyboard: false, zIndexOffset: 1000 }).addTo(map);
-    accuracyCircle = L.circle(point, {
-      radius: accuracy,
-      color: "#4da3ff",
-      weight: 1,
-      opacity: 0.75,
-      fillColor: "#1686ff",
-      fillOpacity: 0.13,
-      interactive: false
-    }).addTo(map);
-  } else {
-    locationMarker.setLatLng(point);
-    accuracyCircle.setLatLng(point).setRadius(accuracy);
-  }
-
   elements.mapFrame.classList.add("has-location");
   elements.recenterButton.disabled = false;
   elements.errorHelp.hidden = true;
   elements.startButton.hidden = true;
   elements.stopButton.hidden = false;
 
-  if (followLocation) {
-    const nextZoom = Math.max(map.getZoom(), accuracy > 250 ? 14 : 17);
-    map.setView(point, nextZoom, { animate: lastPosition !== null });
-  }
+  renderMapPosition(position);
 
   setStatus(
     "tracking",
@@ -253,10 +370,15 @@ function stopTracking() {
 }
 
 function recenterMap() {
-  if (!map || !lastPosition) return;
+  if (!mapLoaded || !lastPosition) return;
   followLocation = true;
   const { latitude, longitude, accuracy } = lastPosition.coords;
-  map.setView([latitude, longitude], accuracy > 250 ? 14 : 17, { animate: true });
+  map.easeTo({
+    center: [longitude, latitude],
+    zoom: accuracy > 250 ? 14 : 17,
+    duration: 650,
+    essential: true
+  });
 }
 
 elements.startButton.addEventListener("click", startTracking);
@@ -266,14 +388,17 @@ elements.recenterButton.addEventListener("click", recenterMap);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
     clearLocationWatch();
-  } else if (wantsTracking) {
-    setStatus(
-      "requesting",
-      "Updating",
-      "Refreshing your location",
-      "Safari paused updates in the background. Reconnecting now."
-    );
-    beginLocationWatch();
+  } else {
+    if (map) map.resize();
+    if (wantsTracking) {
+      setStatus(
+        "requesting",
+        "Updating",
+        "Refreshing your location",
+        "Safari paused updates in the background. Reconnecting now."
+      );
+      beginLocationWatch();
+    }
   }
 });
 
