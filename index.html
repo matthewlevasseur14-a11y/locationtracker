@@ -2,56 +2,108 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0f14">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+  <meta name="theme-color" content="#07111f">
+  <meta name="color-scheme" content="dark">
+  <meta name="description" content="Track your current location live on a private map in Safari.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Live Location Tracker</title>
+  <meta name="apple-mobile-web-app-title" content="Live Location">
+  <title>Live Location Map</title>
+
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3MZCeFlsUzA7nMItwDliO3JhqLoWw=" crossorigin="anonymous">
   <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIINfQ3Jt7m5k3n0m0Q3V2Qm9rYj3d2c6uA="
-        crossorigin="">
 </head>
 <body>
-  <main class="app">
-    <header>
+  <main class="app-shell">
+    <header class="topbar">
       <div>
+        <p class="eyebrow">Private on this device</p>
         <h1>Live Location</h1>
-        <p id="status">Ready to track</p>
       </div>
-      <span id="dot" class="dot"></span>
+      <div id="statusPill" class="status-pill" data-state="idle" aria-label="Location status: ready">
+        <span class="status-dot" aria-hidden="true"></span>
+        <span id="statusShort">Ready</span>
+      </div>
     </header>
 
-    <section class="map-card">
-      <div id="map"></div>
+    <section class="map-frame" aria-label="Live map">
+      <div id="map" role="application" aria-label="Map showing your live location"></div>
+
+      <div id="mapMessage" class="map-message">
+        <div class="location-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M12 21s6-5.34 6-11a6 6 0 1 0-12 0c0 5.66 6 11 6 11Z"></path>
+            <circle cx="12" cy="10" r="2.25"></circle>
+          </svg>
+        </div>
+        <h2>See where you are</h2>
+        <p>Tap below to allow location access. Your coordinates stay in this browser.</p>
+      </div>
+
+      <button id="recenterButton" class="map-control" type="button" aria-label="Center map on my location" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="3"></circle>
+          <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+        </svg>
+      </button>
     </section>
 
-    <section class="controls">
-      <button id="startBtn" class="primary">Start Tracking</button>
-      <button id="stopBtn" class="secondary" disabled>Stop</button>
-      <button id="centerBtn" class="secondary">Center on Me</button>
-    </section>
+    <section class="control-sheet">
+      <div class="status-copy" aria-live="polite" aria-atomic="true">
+        <p id="statusTitle" class="status-title">Location is off</p>
+        <p id="statusDetail" class="status-detail">Safari will ask for permission after you tap Start live tracking.</p>
+      </div>
 
-    <section class="stats">
-      <div class="stat"><span>Latitude</span><strong id="lat">—</strong></div>
-      <div class="stat"><span>Longitude</span><strong id="lng">—</strong></div>
-      <div class="stat"><span>Accuracy</span><strong id="accuracy">—</strong></div>
-      <div class="stat"><span>Speed</span><strong id="speed">—</strong></div>
-      <div class="stat"><span>Heading</span><strong id="heading">—</strong></div>
-      <div class="stat"><span>Last update</span><strong id="updated">—</strong></div>
-    </section>
+      <div id="errorHelp" class="error-help" hidden>
+        <strong>Location blocked?</strong>
+        <span>On iPhone, open Settings → Apps → Safari → Location, choose Ask or Allow, then return here.</span>
+      </div>
 
-    <p class="note">
-      Location is requested only after you press Start Tracking. On iPhone/Safari,
-      this page must be served over HTTPS (or localhost during development).
-      A normal website cannot reliably continue tracking after Safari is closed
-      or the device is locked.
-    </p>
+      <div class="primary-actions">
+        <button id="startButton" class="button button-primary" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="m12 3 7.5 18-7.5-4-7.5 4L12 3Z"></path>
+          </svg>
+          <span>Start live tracking</span>
+        </button>
+        <button id="stopButton" class="button button-secondary" type="button" hidden>Stop tracking</button>
+      </div>
+
+      <dl class="metrics" aria-label="Current location details">
+        <div class="metric metric-wide">
+          <dt>Coordinates</dt>
+          <dd id="coordinates">Waiting for location</dd>
+        </div>
+        <div class="metric">
+          <dt>Accuracy</dt>
+          <dd id="accuracy">—</dd>
+        </div>
+        <div class="metric">
+          <dt>Speed</dt>
+          <dd id="speed">—</dd>
+        </div>
+        <div class="metric">
+          <dt>Heading</dt>
+          <dd id="heading">—</dd>
+        </div>
+        <div class="metric">
+          <dt>Updated</dt>
+          <dd id="updated">—</dd>
+        </div>
+      </dl>
+
+      <p class="privacy-note">
+        Tracking works while this page is open. iOS pauses websites after Safari is closed or the phone is locked.
+      </p>
+    </section>
   </main>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-          crossorigin=""></script>
+  <noscript>This app needs JavaScript to request and display your location.</noscript>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -1,0 +1,18 @@
+{
+  "name": "Live Location Map",
+  "short_name": "Location",
+  "description": "Track your current location live on a private map.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
