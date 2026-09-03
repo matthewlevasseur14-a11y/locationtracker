@@ -20,6 +20,9 @@ const elements = {
   errorHelp: document.getElementById("errorHelp"),
   startButton: document.getElementById("startButton"),
   stopButton: document.getElementById("stopButton"),
+  fullscreenButton: document.getElementById("fullscreenButton"),
+  fullscreenEnterIcon: document.querySelector(".fullscreen-enter-icon"),
+  fullscreenExitIcon: document.querySelector(".fullscreen-exit-icon"),
   recenterButton: document.getElementById("recenterButton"),
   coordinates: document.getElementById("coordinates"),
   accuracy: document.getElementById("accuracy"),
@@ -40,6 +43,7 @@ let wantsTracking = false;
 let followLocation = true;
 let zoneScreenOpen = false;
 let zoneDismissedWhileInside = false;
+let usingFullscreenFallback = false;
 
 const locationOptions = {
   enableHighAccuracy: true,
@@ -221,6 +225,7 @@ function distanceMeters(latitudeA, longitudeA, latitudeB, longitudeB) {
 }
 
 function showRiddleScreen() {
+  exitMapFullscreen();
   zoneScreenOpen = true;
   wantsTracking = false;
   clearLocationWatch();
@@ -455,10 +460,82 @@ function recenterMap() {
   });
 }
 
+function nativeFullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function resizeMapAfterFullscreenChange() {
+  window.setTimeout(() => {
+    if (map) map.resize();
+  }, 120);
+}
+
+function updateFullscreenButton() {
+  const isFullscreen = Boolean(nativeFullscreenElement() || usingFullscreenFallback);
+  elements.fullscreenButton.setAttribute("aria-pressed", String(isFullscreen));
+  elements.fullscreenButton.setAttribute(
+    "aria-label",
+    isFullscreen ? "Exit fullscreen map" : "Open fullscreen map"
+  );
+  elements.fullscreenButton.title = isFullscreen ? "Exit full screen" : "Full screen";
+  elements.fullscreenEnterIcon.hidden = isFullscreen;
+  elements.fullscreenExitIcon.hidden = !isFullscreen;
+  resizeMapAfterFullscreenChange();
+}
+
+function enterFullscreenFallback() {
+  usingFullscreenFallback = true;
+  document.body.classList.add("map-fullscreen");
+  updateFullscreenButton();
+}
+
+async function exitMapFullscreen() {
+  if (usingFullscreenFallback) {
+    usingFullscreenFallback = false;
+    document.body.classList.remove("map-fullscreen");
+    updateFullscreenButton();
+    return;
+  }
+
+  const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+  if (nativeFullscreenElement() && exitFullscreen) {
+    try {
+      await exitFullscreen.call(document);
+    } catch (error) {
+      updateFullscreenButton();
+    }
+  }
+}
+
+async function toggleMapFullscreen() {
+  if (nativeFullscreenElement() || usingFullscreenFallback) {
+    await exitMapFullscreen();
+    return;
+  }
+
+  const requestFullscreen =
+    elements.mapFrame.requestFullscreen || elements.mapFrame.webkitRequestFullscreen;
+
+  if (!requestFullscreen) {
+    enterFullscreenFallback();
+    return;
+  }
+
+  try {
+    await requestFullscreen.call(elements.mapFrame);
+  } catch (error) {
+    enterFullscreenFallback();
+  }
+}
+
 elements.startButton.addEventListener("click", startTracking);
 elements.stopButton.addEventListener("click", stopTracking);
+elements.fullscreenButton.addEventListener("click", toggleMapFullscreen);
 elements.recenterButton.addEventListener("click", recenterMap);
 elements.continueButton.addEventListener("click", continueAfterRiddle);
+
+document.addEventListener("fullscreenchange", updateFullscreenButton);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
