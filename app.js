@@ -2,6 +2,12 @@
 
 const MAPLIBRE_URL = "https://unpkg.com/maplibre-gl@6.7.0/dist/maplibre-gl.mjs";
 const MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+const LOCALS_DINER_ZONE = {
+  latitude: 42.6725322,
+  longitude: -71.3321216,
+  enterRadiusMeters: 120,
+  exitRadiusMeters: 180
+};
 
 const elements = {
   mapFrame: document.querySelector(".map-frame"),
@@ -19,7 +25,9 @@ const elements = {
   accuracy: document.getElementById("accuracy"),
   speed: document.getElementById("speed"),
   heading: document.getElementById("heading"),
-  updated: document.getElementById("updated")
+  updated: document.getElementById("updated"),
+  zoneScreen: document.getElementById("zoneScreen"),
+  continueButton: document.getElementById("continueButton")
 };
 
 let maplibregl = null;
@@ -30,6 +38,8 @@ let watchId = null;
 let lastPosition = null;
 let wantsTracking = false;
 let followLocation = true;
+let zoneScreenOpen = false;
+let zoneDismissedWhileInside = false;
 
 const locationOptions = {
   enableHighAccuracy: true,
@@ -195,6 +205,68 @@ function formatHeading(degrees) {
   return `${direction} · ${Math.round(degrees)}°`;
 }
 
+function distanceMeters(latitudeA, longitudeA, latitudeB, longitudeB) {
+  const earthRadius = 6371008.8;
+  const toRadians = (degrees) => degrees * Math.PI / 180;
+  const latitudeDelta = toRadians(latitudeB - latitudeA);
+  const longitudeDelta = toRadians(longitudeB - longitudeA);
+  const startLatitude = toRadians(latitudeA);
+  const endLatitude = toRadians(latitudeB);
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(startLatitude) * Math.cos(endLatitude) *
+    Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadius * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function showRiddleScreen() {
+  zoneScreenOpen = true;
+  wantsTracking = false;
+  clearLocationWatch();
+  document.body.classList.add("zone-active");
+  elements.zoneScreen.hidden = false;
+  window.setTimeout(() => elements.continueButton.focus({ preventScroll: true }), 0);
+}
+
+function checkRiddleZone(position) {
+  if (zoneScreenOpen) return;
+
+  const distance = distanceMeters(
+    position.coords.latitude,
+    position.coords.longitude,
+    LOCALS_DINER_ZONE.latitude,
+    LOCALS_DINER_ZONE.longitude
+  );
+
+  if (zoneDismissedWhileInside) {
+    if (distance > LOCALS_DINER_ZONE.exitRadiusMeters) {
+      zoneDismissedWhileInside = false;
+    }
+    return;
+  }
+
+  if (distance <= LOCALS_DINER_ZONE.enterRadiusMeters) {
+    showRiddleScreen();
+  }
+}
+
+function continueAfterRiddle() {
+  zoneScreenOpen = false;
+  zoneDismissedWhileInside = true;
+  elements.zoneScreen.hidden = true;
+  document.body.classList.remove("zone-active");
+  wantsTracking = true;
+  followLocation = true;
+  setStatus(
+    "requesting",
+    "Updating",
+    "Resuming location tracking",
+    "Getting your current position now."
+  );
+  beginLocationWatch();
+}
+
 function renderMapPosition(position, animate = true) {
   if (!mapLoaded) return;
 
@@ -259,6 +331,8 @@ function renderPosition(position) {
     "Tracking your location",
     `Accurate to about ${Math.round(accuracy)} meters. Keep Safari open for continuous updates.`
   );
+
+  checkRiddleZone(position);
 }
 
 function messageForError(error) {
@@ -384,6 +458,7 @@ function recenterMap() {
 elements.startButton.addEventListener("click", startTracking);
 elements.stopButton.addEventListener("click", stopTracking);
 elements.recenterButton.addEventListener("click", recenterMap);
+elements.continueButton.addEventListener("click", continueAfterRiddle);
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {

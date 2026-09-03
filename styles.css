@@ -18,11 +18,19 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
   min-height: 100%;
   background: var(--bg);
+}
+
+body.zone-active {
+  overflow: hidden;
 }
 
 body {
@@ -460,6 +468,62 @@ noscript {
   padding: 20px;
   color: white;
   background: #7d2430;
+}
+
+.zone-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    max(28px, env(safe-area-inset-top))
+    max(24px, env(safe-area-inset-right))
+    max(30px, env(safe-area-inset-bottom))
+    max(24px, env(safe-area-inset-left));
+  display: grid;
+  place-items: center;
+  background: #16a05d;
+  color: #ffffff;
+}
+
+.zone-content {
+  width: min(100%, 520px);
+  display: grid;
+  justify-items: center;
+  gap: clamp(48px, 13vh, 104px);
+  text-align: center;
+}
+
+.zone-title {
+  margin: 0;
+  font-size: clamp(4.6rem, 23vw, 9rem);
+  font-weight: 850;
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+}
+
+.zone-button {
+  width: min(100%, 300px);
+  min-height: 58px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 18px;
+  background: #ffffff;
+  color: #07572f;
+  box-shadow: 0 14px 34px rgba(0, 64, 35, 0.24);
+  font-size: 1.05rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.zone-button:focus-visible {
+  outline: 4px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 5px;
+}
+
+.zone-button:active {
+  transform: scale(0.98);
 }
 
 @keyframes pulse {
