@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Live Location Tracker</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIINfQ3Jt7m5k3n0m0Q3V2Qm9rYj3d2c6uA="
+        crossorigin="">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Live Location</h1>
+        <p id="status">Ready to track</p>
+      </div>
+      <span id="dot" class="dot"></span>
+    </header>
+
+    <section class="map-card">
+      <div id="map"></div>
+    </section>
+
+    <section class="controls">
+      <button id="startBtn" class="primary">Start Tracking</button>
+      <button id="stopBtn" class="secondary" disabled>Stop</button>
+      <button id="centerBtn" class="secondary">Center on Me</button>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><span>Latitude</span><strong id="lat">—</strong></div>
+      <div class="stat"><span>Longitude</span><strong id="lng">—</strong></div>
+      <div class="stat"><span>Accuracy</span><strong id="accuracy">—</strong></div>
+      <div class="stat"><span>Speed</span><strong id="speed">—</strong></div>
+      <div class="stat"><span>Heading</span><strong id="heading">—</strong></div>
+      <div class="stat"><span>Last update</span><strong id="updated">—</strong></div>
+    </section>
+
+    <p class="note">
+      Location is requested only after you press Start Tracking. On iPhone/Safari,
+      this page must be served over HTTPS (or localhost during development).
+      A normal website cannot reliably continue tracking after Safari is closed
+      or the device is locked.
+    </p>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
+  <script src="app.js"></script>
+</body>
+</html>
