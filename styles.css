@@ -476,28 +476,36 @@ body.map-fullscreen .map-controls {
 }
 
 .user-dot-wrapper {
+  position: relative;
+  width: 46px;
+  height: 64px;
+  display: grid;
+  place-items: center;
   background: transparent;
   border: 0;
+  pointer-events: none;
 }
 
-.user-dot {
-  position: relative;
-  width: 22px;
-  height: 22px;
-  border: 3px solid white;
-  border-radius: 50%;
-  background: var(--blue-strong);
-  box-shadow: 0 3px 14px rgba(0, 43, 88, 0.6);
-}
-
-.user-dot::before {
+.user-dot-wrapper::before {
   content: "";
   position: absolute;
-  inset: -10px;
-  z-index: -1;
+  z-index: 0;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   background: rgba(22, 134, 255, 0.2);
   animation: pulse 2.2s ease-out infinite;
+}
+
+.user-avatar {
+  position: relative;
+  z-index: 1;
+  width: 82px;
+  height: auto;
+  max-width: none;
+  filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.56));
+  -webkit-user-drag: none;
+  user-select: none;
 }
 
 noscript {
