@@ -33,6 +33,10 @@ body.zone-active {
   overflow: hidden;
 }
 
+body.map-fullscreen {
+  overflow: hidden;
+}
+
 body {
   min-height: 100vh;
   min-height: 100dvh;
@@ -204,11 +208,16 @@ h1 {
   line-height: 1.45;
 }
 
-.map-control {
+.map-controls {
   position: absolute;
   z-index: 600;
   right: 14px;
   bottom: 14px;
+  display: grid;
+  gap: 9px;
+}
+
+.map-control {
   width: 48px;
   height: 48px;
   padding: 0;
@@ -221,6 +230,7 @@ h1 {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
   -webkit-backdrop-filter: blur(14px);
   backdrop-filter: blur(14px);
+  cursor: pointer;
 }
 
 .map-control:disabled {
@@ -229,10 +239,37 @@ h1 {
 
 .map-control svg {
   width: 23px;
+  height: 23px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
   stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-frame:fullscreen,
+.map-frame:-webkit-full-screen,
+body.map-fullscreen .map-frame {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+}
+
+body.map-fullscreen .map-frame {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+}
+
+.map-frame:fullscreen .map-controls,
+.map-frame:-webkit-full-screen .map-controls,
+body.map-fullscreen .map-controls {
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(14px, env(safe-area-inset-bottom));
 }
 
 .control-sheet {
